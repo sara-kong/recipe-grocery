@@ -1,49 +1,52 @@
 # Recipe -> Grocery
 
-TikTok link in, structured high-protein recipe + "what do I need to buy" out.
+Share a TikTok recipe, pick what you're cooking this week, and get one list of only what
+you're missing. Snap a receipt or a delivery-order screenshot to update what you have.
 
 ## Run locally
 ```bash
-brew install ffmpeg          # yt-dlp needs it to pull audio
+brew install ffmpeg
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...
-export API_KEY=pick-a-secret # optional locally, required once deployed
-uvicorn main:app --reload
+uvicorn main:app --reload --host 0.0.0.0 --port 8001
 ```
-Interactive docs: http://localhost:8000/docs
 
-## Try it
-```bash
-H='X-API-Key: pick-a-secret'
-curl -X POST localhost:8000/recipes -H "$H" -H 'Content-Type: application/json' \
-  -d '{"url":"https://www.tiktok.com/@someone/video/123"}'
-curl -X POST localhost:8000/pantry -H "$H" -H 'Content-Type: application/json' \
-  -d '{"items":["olive oil","salt","garlic"],"is_staple":true}'
-curl localhost:8000/recipes/1/missing -H "$H"
+`.env` (never commit it):
 ```
+LOCUS_API_KEY=lcac_...        # or ANTHROPIC_API_KEY=sk-ant-... to pay Anthropic directly
+CLAUDE_MODEL=claude-haiku-5-5
+YTDLP_INSECURE=1              # local only, if your network intercepts HTTPS
+API_KEY=pick-a-secret         # optional locally, required once deployed
+```
+
+## On your phone
+- **Phone page:** open `http://<laptop-ip>:8001/app?key=<API_KEY>` in Safari, then
+  Share -> Add to Home Screen. Pick recipes (sorted by protein), tap **Make list**, and
+  check items off in the store. Tap a recipe to see its ingredients and steps, or mark it **Cooked it**. **Pantry** lets you add, remove, and mark staples. **Add receipt** takes a receipt photo or an Uber Eats /
+  DoorDash order screenshot and adds what you bought to your pantry.
+- **Add Recipe shortcut:** Show in Share Sheet (URLs + Text) -> Get URLs from Input ->
+  Get Contents of URL (POST `/recipes`, JSON body `url`, header `X-API-Key`) ->
+  Show Notification with the `title`.
+
+Find your laptop's address with `ipconfig getifaddr en0`. Phone and laptop need the same Wi-Fi.
 
 ## Endpoints
 | Method | Path | What |
 |---|---|---|
 | POST | /recipes | `{url}` -> fetch, transcribe, parse, save (dedupes by URL) |
-| GET | /recipes?min_protein=30 | list, highest protein/serving first |
+| GET | /recipes | list, highest protein per serving first |
 | GET/DELETE | /recipes/{id} | one recipe |
-| GET | /recipes/{id}/missing | shopping list by aisle + newline `text` |
-| POST | /recipes/{id}/cooked | clear used non-staples from pantry |
+| POST | /shopping-list | `{recipe_ids: [...]}` -> merged missing items by aisle |
+| GET | /recipes/{id}/missing | same, for one recipe |
+| POST | /recipes/{id}/cooked | remove used ingredients from the pantry (staples stay) |
 | GET/POST | /pantry | `{items: [...], is_staple}` |
+| PUT | /pantry/{name} | `{is_staple}`: mark or unmark a staple |
 | DELETE | /pantry/{name} | ran out of something |
-
-## Deploy (Railway)
-Deploy from the Dockerfile, set `ANTHROPIC_API_KEY` and `API_KEY`, and attach a
-volume at `/data` so SQLite survives redeploys. Give it >=1 GB RAM if Whisper runs.
-
-## iOS Shortcuts
-- **Add recipe** (share sheet, accepts URLs): Get Contents of URL -> POST `/recipes`,
-  header `X-API-Key`, JSON body `url` = Shortcut Input -> Show `title` + `protein_per_serving_g`.
-- **What do I need?**: GET `/recipes` -> Choose from List (titles) -> GET `/recipes/{id}/missing`
-  -> Split `text` by New Lines -> Repeat: Add New Reminder to your Groceries list.
+| POST | /pantry/import | form field `file` (image) -> items added to the pantry |
+| GET | /app | the phone page |
 
 ## Notes
-- Protein is Claude's estimate. Swap in USDA FoodData Central later for real numbers.
-- TikTok sometimes blocks scraping. Update yt-dlp first (`pip install -U yt-dlp`) when fetches fail.
-- `raw_text` is stored so you can re-parse old recipes if you change the prompt.
+- Protein numbers are Claude's estimates.
+- Long screenshots are cut into overlapping pieces so small text stays readable.
+- Order history comes from screenshots you take, not from scraping Uber Eats or DoorDash.
+- If TikTok fetches fail, run `pip install -U yt-dlp` first.

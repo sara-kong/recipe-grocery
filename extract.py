@@ -5,9 +5,19 @@ import tempfile
 import uuid
 from pathlib import Path
 
+import base64
+import io
+
 import anthropic
 import httpx
 import yt_dlp
+from PIL import Image, ImageOps
+
+try:  # lets the server read iPhone HEIC photos too
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+except ImportError:
+    pass
 
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-haiku-5-5")
 LOCUS_API_KEY = os.getenv("LOCUS_API_KEY")  # if set, Claude calls are paid from Locus credits
@@ -129,16 +139,94 @@ TRANSCRIPT:
 
 
 def parse_recipe(caption: str, transcript: str) -> dict:
+    return call_claude(RECIPE_TOOL, PROMPT.format(
+        caption=caption or "(none)", transcript=transcript or "(none)"))
+
+
+# ---------- 3. Receipts and delivery-order screenshots ----------
+
+RECEIPT_TOOL = {
+    "name": "save_purchases",
+    "description": "Save the grocery items bought on this receipt or delivery order.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "source": {"type": "string", "enum": ["store receipt", "delivery order", "other"]},
+            "store": {"type": ["string", "null"]},
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string",
+                                 "description": "Generic grocery name, lowercase, no brand or size, "
+                                                "the way it would appear in a recipe. e.g. 'chicken thighs'."},
+                        "original": {"type": "string", "description": "As printed on the receipt or order."},
+                    },
+                    "required": ["name", "original"],
+                },
+            },
+        },
+        "required": ["source", "items"],
+    },
+}
+
+RECEIPT_PROMPT = """These images show one grocery purchase: a store receipt or a delivery order
+screenshot (Uber Eats, DoorDash, Instacart, etc.). A long screenshot may be split into
+consecutive pieces that overlap slightly, so don't count an item twice.
+
+List the food and cooking items that were actually bought.
+- Expand store abbreviations ("BNLS CHKN THGH" -> "chicken thighs").
+- Skip fees, tax, tips, bags, discounts, deposits and non-food items.
+- For delivery orders, skip items marked refunded, out of stock or not found, and list
+  substitutions as the item actually delivered.
+- If an item is the same thing as one of these ingredient names already in the app, use that
+  exact name: {known}"""
+
+
+def parse_receipt(images_b64: list[str], known_names: list[str]) -> dict:
+    content = [{"type": "image",
+                "source": {"type": "base64", "media_type": "image/jpeg", "data": b}}
+               for b in images_b64]
+    content.append({"type": "text", "text": RECEIPT_PROMPT.format(
+        known=", ".join(known_names[:300]) or "(none yet)")})
+    return call_claude(RECEIPT_TOOL, content)
+
+
+def prepare_images(raw: bytes, width: int = 1000, piece_height: int = 1500,
+                   overlap: int = 100, max_pieces: int = 8) -> list[str]:
+    """Shrink to a readable width, then cut tall screenshots into pieces so text stays sharp."""
+    try:
+        img = Image.open(io.BytesIO(raw))
+        img = ImageOps.exif_transpose(img).convert("RGB")
+    except Exception:
+        raise ValueError("Couldn't read that image. Try a JPEG or PNG screenshot.")
+
+    if img.width > width:
+        img = img.resize((width, round(img.height * width / img.width)))
+
+    pieces, top = [], 0
+    while top < img.height and len(pieces) < max_pieces:
+        box = (0, top, img.width, min(top + piece_height, img.height))
+        buf = io.BytesIO()
+        img.crop(box).save(buf, format="JPEG", quality=85)
+        pieces.append(base64.b64encode(buf.getvalue()).decode())
+        top += piece_height - overlap
+    return pieces
+
+
+# ---------- Claude call (Locus credits or Anthropic directly) ----------
+
+def call_claude(tool: dict, content) -> dict:
     body = {
         "model": CLAUDE_MODEL,
         "max_tokens": 4096,
-        "tools": [RECIPE_TOOL],
-        "tool_choice": {"type": "tool", "name": "save_recipe"},
-        "messages": [{"role": "user", "content": PROMPT.format(
-            caption=caption or "(none)", transcript=transcript or "(none)")}],
+        "tools": [tool],
+        "tool_choice": {"type": "tool", "name": tool["name"]},
+        "messages": [{"role": "user", "content": content}],
     }
     if LOCUS_API_KEY:
-        return _parse_via_locus(body)
+        return _call_via_locus(body)
 
     client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY
     msg = client.messages.create(**body)
@@ -146,7 +234,7 @@ def parse_recipe(caption: str, transcript: str) -> dict:
     return block.input
 
 
-def _parse_via_locus(body: dict) -> dict:
+def _call_via_locus(body: dict) -> dict:
     """Same Anthropic request body, sent through Locus Pro and paid from credits."""
     resp = httpx.post(
         LOCUS_ANTHROPIC_URL,
