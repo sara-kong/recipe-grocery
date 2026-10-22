@@ -17,6 +17,7 @@ LOCUS_API_KEY=lcac_...        # or ANTHROPIC_API_KEY=sk-ant-... to pay Anthropic
 CLAUDE_MODEL=claude-haiku-5-5
 YTDLP_INSECURE=1              # local only, if your network intercepts HTTPS
 API_KEY=pick-a-secret         # optional locally, required once deployed
+DATABASE_URL=postgresql://... # optional: hosted Postgres (Neon). Unset = local grocery.db
 ```
 
 ## On your phone
@@ -50,3 +51,10 @@ Find your laptop's address with `ipconfig getifaddr en0`. Phone and laptop need 
 - Long screenshots are cut into overlapping pieces so small text stays readable.
 - Order history comes from screenshots you take, not from scraping Uber Eats or DoorDash.
 - If TikTok fetches fail, run `pip install -U yt-dlp` first.
+
+## Deploy free (Render + Neon)
+Render's free web service builds the Dockerfile; Neon holds the database, since free
+services lose their files on restart. Set these environment variables on Render:
+`LOCUS_API_KEY`, `CLAUDE_MODEL`, `API_KEY`, `DATABASE_URL`, and `WHISPER_MODEL=tiny`
+(the free tier has 512 MB of memory). Free services sleep after a few minutes idle and
+take about a minute to wake on the next request.

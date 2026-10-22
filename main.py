@@ -3,6 +3,7 @@ load_dotenv()
 
 import json
 import os
+import traceback
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -43,7 +44,7 @@ def match_key(name: str) -> str:
 def add_to_pantry(conn, names: list[str], is_staple: bool = False):
     conn.executemany(
         "INSERT INTO pantry (name, is_staple) VALUES (?, ?) "
-        "ON CONFLICT(name) DO UPDATE SET is_staple = MAX(is_staple, excluded.is_staple), "
+        "ON CONFLICT(name) DO UPDATE SET is_staple = MAX(pantry.is_staple, excluded.is_staple), "
         "updated_at = CURRENT_TIMESTAMP",
         [(n.lower().strip(), int(is_staple)) for n in names if n.strip()],
     )
@@ -87,7 +88,8 @@ def add_recipe(body: RecipeIn):
     try:
         src = fetch_tiktok(body.url)
     except Exception as e:
-        raise HTTPException(502, f"Couldn't fetch video: {e}")
+        traceback.print_exc()  # full details in the uvicorn terminal
+        raise HTTPException(502, f"Couldn't fetch video: {type(e).__name__}: {e}")
 
     with get_conn() as conn:  # short links resolve to a canonical URL
         hit = conn.execute("SELECT id FROM recipes WHERE source_url = ?",
@@ -95,7 +97,11 @@ def add_recipe(body: RecipeIn):
         if hit:
             return load_recipe(conn, hit["id"])
 
-    data = parse_recipe(src["caption"], src["transcript"])
+    try:
+        data = parse_recipe(src["caption"], src["transcript"])
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(502, f"Couldn't parse recipe: {type(e).__name__}: {e}")
     if not data.get("is_recipe") or not data.get("ingredients"):
         raise HTTPException(422, "That video doesn't look like a recipe")
 
@@ -103,13 +109,12 @@ def add_recipe(body: RecipeIn):
     protein = round(sum(i.get("protein_g") or 0 for i in data["ingredients"]) / servings, 1)
 
     with get_conn() as conn:
-        cur = conn.execute(
+        rid = conn.execute(
             "INSERT INTO recipes (source_url, title, servings, protein_per_serving_g, steps, raw_text) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
             (src["canonical_url"], data["title"], servings, protein, json.dumps(data["steps"]),
              f"CAPTION:\n{src['caption']}\n\nTRANSCRIPT:\n{src['transcript']}"),
-        )
-        rid = cur.lastrowid
+        ).fetchone()["id"]
         conn.executemany(
             "INSERT INTO ingredients (recipe_id, name, original, quantity, unit, aisle, protein_g) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
