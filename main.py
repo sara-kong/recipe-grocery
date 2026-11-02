@@ -8,20 +8,26 @@ from collections import defaultdict
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from db import get_conn, init_db
 from extract import AISLES, fetch_tiktok, parse_receipt, parse_recipe, prepare_images
+from ingredients import Pantry, clean, ensure_classified, lookup
 
 API_KEY = os.getenv("API_KEY")
 APP_HTML = Path(__file__).with_name("app.html")
+ICON = Path(__file__).with_name("icon.png")
+PUBLIC_PATHS = {"/icon.png", "/health"}  # icon fetch and uptime pings come without your key
 
 
-def check_key(x_api_key: str | None = Header(default=None),
+def check_key(request: Request,
+              x_api_key: str | None = Header(default=None),
               key: str | None = Query(default=None)):
     """Header for Shortcuts, ?key= for the web page (browsers can't set headers on a link)."""
+    if request.url.path in PUBLIC_PATHS:
+        return
     if API_KEY and API_KEY not in (x_api_key, key):
         raise HTTPException(401, "Bad or missing API key")
 
@@ -33,12 +39,6 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Recipe -> Grocery", lifespan=lifespan, dependencies=[Depends(check_key)])
-
-
-def match_key(name: str) -> str:
-    """Loose match so 'eggs' == 'egg'."""
-    n = name.lower().strip()
-    return n[:-1] if n.endswith("s") else n
 
 
 def add_to_pantry(conn, names: list[str], is_staple: bool = False):
@@ -56,6 +56,20 @@ def add_to_pantry(conn, names: list[str], is_staple: bool = False):
 def web_app():
     """Phone page: pick recipes, see the merged list, import receipts. Open as /app?key=..."""
     return APP_HTML.read_text()
+
+
+@app.get("/health", include_in_schema=False)
+def health():
+    """Cheap endpoint for an uptime pinger, so the free server stays awake."""
+    return {"ok": True}
+
+
+@app.get("/icon.png", include_in_schema=False)
+def icon():
+    """Home screen icon. Replace icon.png with any square PNG."""
+    if not ICON.exists():
+        raise HTTPException(404, "No icon.png in the project folder")
+    return FileResponse(ICON, media_type="image/png")
 
 
 # ---------- Recipes ----------
@@ -121,6 +135,8 @@ def add_recipe(body: RecipeIn):
             [(rid, i["name"].lower().strip(), i.get("original"), i.get("quantity"), i.get("unit"),
               i.get("aisle"), i.get("protein_g")) for i in data["ingredients"]],
         )
+    ensure_classified(i["name"] for i in data["ingredients"])
+    with get_conn() as conn:
         return load_recipe(conn, rid)
 
 
@@ -137,8 +153,18 @@ def list_recipes(min_protein: float = 0):
 
 @app.get("/recipes/{recipe_id}")
 def get_recipe(recipe_id: int):
+    """The recipe, with each ingredient marked as have / kitchen basic / need."""
     with get_conn() as conn:
-        return load_recipe(conn, recipe_id)
+        recipe = load_recipe(conn, recipe_id)
+        pantry_names = [r["name"] for r in conn.execute("SELECT name FROM pantry").fetchall()]
+    ensure_classified([i["name"] for i in recipe["ingredients"]] + pantry_names)
+    with get_conn() as conn:
+        info = lookup(conn, [i["name"] for i in recipe["ingredients"]])
+        pantry = Pantry(conn)
+    for i in recipe["ingredients"]:
+        c = info[clean(i["name"])]
+        i["canonical"], i["basic"], i["have"] = c["canonical"], c["basic"], pantry.has(c)
+    return recipe
 
 
 @app.delete("/recipes/{recipe_id}")
@@ -153,12 +179,15 @@ def cooked(recipe_id: int):
     """Remove this recipe's non-staple ingredients from the pantry."""
     with get_conn() as conn:
         recipe = load_recipe(conn, recipe_id)
-        used = {match_key(i["name"]) for i in recipe["ingredients"]}
-        removed = []
-        for r in conn.execute("SELECT name FROM pantry WHERE is_staple = 0").fetchall():
-            if match_key(r["name"]) in used:
-                conn.execute("DELETE FROM pantry WHERE name = ?", (r["name"],))
-                removed.append(r["name"])
+        pantry_names = [r["name"] for r in conn.execute("SELECT name FROM pantry WHERE is_staple = 0").fetchall()]
+    ensure_classified([i["name"] for i in recipe["ingredients"]] + pantry_names)
+    with get_conn() as conn:
+        used = {c["canonical"] for c in lookup(conn, [i["name"] for i in recipe["ingredients"]]).values()
+                if not c["basic"]}
+        pantry_info = lookup(conn, pantry_names)
+        removed = [n for n in pantry_names if pantry_info[clean(n)]["canonical"] in used]
+        for n in removed:
+            conn.execute("DELETE FROM pantry WHERE name = ?", (n,))
     return {"removed": removed}
 
 
@@ -172,15 +201,21 @@ def build_list(recipe_ids: list[int]) -> dict:
     """Merge several recipes, drop what's in the pantry, sum amounts that share a unit."""
     with get_conn() as conn:
         recipes = [load_recipe(conn, rid) for rid in dict.fromkeys(recipe_ids)]
-        have = {match_key(r["name"]) for r in conn.execute("SELECT name FROM pantry")}
+        pantry_names = [r["name"] for r in conn.execute("SELECT name FROM pantry").fetchall()]
+    all_names = [i["name"] for r in recipes for i in r["ingredients"]]
+    ensure_classified(all_names + pantry_names)
+    with get_conn() as conn:
+        info = lookup(conn, all_names)
+        pantry = Pantry(conn)
 
     items: dict[str, dict] = {}
     for r in recipes:
         for i in r["ingredients"]:
-            k = match_key(i["name"])
-            if k in have:
+            c = info[clean(i["name"])]
+            if pantry.has(c):
                 continue
-            item = items.setdefault(k, {"name": i["name"], "aisle": i["aisle"] or "other",
+            k = c["canonical"]
+            item = items.setdefault(k, {"name": k, "aisle": i["aisle"] or "other",
                                         "_amounts": defaultdict(float), "recipes": []})
             if i["quantity"] is not None:
                 item["_amounts"][(i["unit"] or "").lower().strip()] += i["quantity"]
@@ -229,13 +264,18 @@ class PantryIn(BaseModel):
 @app.get("/pantry")
 def get_pantry():
     with get_conn() as conn:
-        return [dict(r) for r in conn.execute("SELECT name, is_staple FROM pantry ORDER BY name")]
+        rows = [dict(r) for r in conn.execute("SELECT name, is_staple FROM pantry ORDER BY name")]
+        info = lookup(conn, [r["name"] for r in rows])
+    for r in rows:
+        r["counts_as"] = info[clean(r["name"])]["canonical"]
+    return rows
 
 
 @app.post("/pantry")
 def add_pantry(body: PantryIn):
     with get_conn() as conn:
         add_to_pantry(conn, body.items, body.is_staple)
+    ensure_classified(body.items)
     return get_pantry()
 
 
@@ -277,4 +317,34 @@ def import_purchase(file: UploadFile = File(...)):
 
     with get_conn() as conn:
         add_to_pantry(conn, names)
+    ensure_classified(names)
     return {"source": data.get("source"), "store": data.get("store"), "added": names}
+
+
+# ---------- Ingredient dictionary ----------
+
+@app.get("/ingredients/map")
+def ingredient_map():
+    """Everything the app has learned: name -> what it counts as."""
+    with get_conn() as conn:
+        return [dict(r) for r in conn.execute(
+            "SELECT name, canonical, family, basic FROM ingredient_map ORDER BY canonical, name")]
+
+
+class MapIn(BaseModel):
+    canonical: str
+    family: str | None = None
+    basic: bool = False
+
+
+@app.put("/ingredients/map/{name}")
+def fix_mapping(name: str, body: MapIn):
+    """Correct one classification by hand, e.g. make 'shredded cheese' count as 'mozzarella'."""
+    canonical = clean(body.canonical)
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO ingredient_map (name, canonical, family, basic) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(name) DO UPDATE SET canonical = excluded.canonical, "
+            "family = excluded.family, basic = excluded.basic",
+            (clean(name), canonical, clean(body.family or canonical), int(body.basic)))
+    return {"name": clean(name), "canonical": canonical}

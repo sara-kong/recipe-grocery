@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Groceries">
 <title>Groceries</title>
+<link rel="apple-touch-icon" href="/icon.png">
+<link rel="icon" type="image/png" href="/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
@@ -181,7 +183,6 @@ const store = {
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
-const matchKey = (n) => { n = String(n).toLowerCase().trim(); return n.endsWith("s") ? n.slice(0, -1) : n; };
 const fmtAmount = (q, u) => (q == null ? "" : `${+Number(q).toFixed(2)} ${u || ""}`.trim());
 
 function showStatus(text, isError = false) {
@@ -217,6 +218,9 @@ function updateMakeButton() {
 
 async function loadRecipes() {
   let recipes;
+  if (!$("recipes").children.length) {
+    $("recipes").innerHTML = `<li class="empty">Loading recipes… If the app was idle, the server takes up to a minute to wake up.</li>`;
+  }
   try {
     recipes = await api("/recipes");
   } catch (e) {
@@ -256,34 +260,45 @@ $("recipes").addEventListener("click", (e) => {
 
 /* ---------- Recipe detail ---------- */
 
+let openToken = 0;
+
 async function openRecipe(id, keepStatus = false) {
   if (!keepStatus) showStatus("");
-  let r, pantry;
+  const token = ++openToken;  // ignore slow responses for a recipe you've already left
+  if ($("detail").hidden) {
+    $("detail-body").innerHTML = `<div class="empty">Loading recipe…</div>`;
+    show("detail");
+  }
+  let r;
   try {
-    [r, pantry] = await Promise.all([api(`/recipes/${id}`), api("/pantry")]);
+    r = await api(`/recipes/${id}`);
   } catch (e) {
-    showStatus(e.message, true);
+    if (token !== openToken) return;
+    $("detail-body").innerHTML = `<div class="empty">${esc(e.message)}</div>`;
     return;
   }
-  const have = new Set(pantry.map((p) => matchKey(p.name)));
-  const owned = r.ingredients.filter((i) => have.has(matchKey(i.name))).length;
+  if (token !== openToken || $("detail").hidden) return;
+
+  const needed = r.ingredients.filter((i) => !i.basic);
+  const owned = needed.filter((i) => i.have).length;
 
   $("detail-body").innerHTML = `
     <div class="hero-protein"><b>${Math.round(r.protein_per_serving_g || 0)}g</b>
       <span>protein per serving, estimated</span></div>
     <h1>${esc(r.title)}</h1>
-    <p class="sub">Serves ${r.servings}. You have ${owned} of ${r.ingredients.length} ingredients.</p>
+    <p class="sub">Serves ${r.servings}. You have ${owned} of ${needed.length} ingredients.</p>
     <p><a href="${esc(r.source_url)}" target="_blank" rel="noopener">Watch on TikTok</a></p>
 
     <h2>Ingredients</h2>
     <ul class="rows">${r.ingredients.map((i) => {
-      const got = have.has(matchKey(i.name));
       const amount = fmtAmount(i.quantity, i.unit);
-      return `<li class="row ${got ? "owned" : ""}">
+      const tag = i.basic ? "Kitchen basic" : i.have ? "Have it" : "";
+      const countsAs = i.canonical && i.canonical !== i.name ? `Counts as ${i.canonical}. ` : "";
+      return `<li class="row ${i.have ? "owned" : ""}">
         <span class="title"><span class="item-name">${esc(i.name)}</span>
           ${amount ? `<span class="item-meta">${esc(amount)}</span>` : ""}<br>
-          <span class="item-meta">${esc(i.original || "")}</span></span>
-        ${got ? `<span class="have">Have it</span>` : ""}
+          <span class="item-meta">${esc(countsAs)}${esc(i.original || "")}</span></span>
+        ${tag ? `<span class="have">${tag}</span>` : ""}
       </li>`;
     }).join("")}</ul>
 
@@ -315,8 +330,6 @@ async function openRecipe(id, keepStatus = false) {
       show("pick");
     } catch (e) { showStatus(e.message, true); }
   };
-
-  show("detail");
 }
 
 /* ---------- Shopping list ---------- */
@@ -370,7 +383,8 @@ async function loadPantry() {
   }
   const row = (p) => `
     <li class="row">
-      <span class="title"><span class="item-name">${esc(p.name)}</span></span>
+      <span class="title"><span class="item-name">${esc(p.name)}</span>
+        ${p.counts_as && p.counts_as !== p.name ? `<br><span class="item-meta">Counts as ${esc(p.counts_as)}</span>` : ""}</span>
       <span class="row-actions">
         <button class="ghost small" data-staple="${esc(p.name)}" data-to="${p.is_staple ? 0 : 1}">
           ${p.is_staple ? "Not a staple" : "Make staple"}</button>

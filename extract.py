@@ -1,4 +1,3 @@
-"""TikTok link -> caption + transcript -> structured recipe via Claude."""
 import glob
 import os
 import tempfile
@@ -213,6 +212,70 @@ def prepare_images(raw: bytes, width: int = 1000, piece_height: int = 1500,
         pieces.append(base64.b64encode(buf.getvalue()).decode())
         top += piece_height - overlap
     return pieces
+
+
+# ---------- 4. Ingredient classification ----------
+
+CLASSIFY_TOOL = {
+    "name": "classify_ingredients",
+    "description": "Map each ingredient name to what it counts as when shopping.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Exactly as given."},
+                        "canonical": {"type": "string"},
+                        "family": {"type": "string"},
+                        "basic": {"type": "boolean"},
+                    },
+                    "required": ["name", "canonical", "family", "basic"],
+                },
+            },
+        },
+        "required": ["items"],
+    },
+}
+
+CLASSIFY_PROMPT = """Classify these grocery ingredient names for a shopping list app. For each name give:
+
+canonical: the single thing you'd buy that covers it, lowercase, plural where natural.
+- Synonyms share one canonical: scallions and green onions -> "green onions".
+- Parts, preparations and forms map to what you buy: egg yolks, egg whites -> "eggs";
+  grilled, diced or caramelized onions -> "onions"; garlic cloves, minced garlic -> "garlic";
+  lemon juice, lemon zest -> "lemons"; cooked rice -> "rice".
+- Varieties people swap freely share one canonical: olive, avocado, vegetable or canola oil and
+  cooking spray -> "cooking oil"; kosher or sea salt -> "salt"; flour or corn tortillas -> "tortillas";
+  any honey -> "honey"; light or regular soy sauce -> "soy sauce".
+- Light, low-fat, shredded, sliced or store-brand versions map to the base: light mozzarella,
+  shredded mozzarella -> "mozzarella".
+- Keep things distinct when the type changes the dish: sesame oil, parmesan, cheddar, mozzarella.
+- A generic name stays generic: "cheese" or "shredded cheese" with no type -> "cheese".
+
+family: the broader group, used to match generic requests. cheddar, mozzarella, parmesan and
+cheese -> "cheese"; cooking oil and sesame oil -> "oil". If there's no broader group, repeat the canonical.
+
+basic: true only for things every kitchen always has: water of any kind (lukewarm, ice, pasta or
+cooking water), ice, salt and black pepper. Everything else is false.
+
+If one of these existing canonical names fits, reuse it exactly: {vocab}
+
+Names:
+{names}"""
+
+
+def classify_ingredients(names: list[str], vocab: list[str]) -> list[dict]:
+    out = []
+    for i in range(0, len(names), 80):  # keep each request small
+        chunk = names[i:i + 80]
+        data = call_claude(CLASSIFY_TOOL, CLASSIFY_PROMPT.format(
+            vocab=", ".join(vocab[:400]) or "(none yet)",
+            names="\n".join(chunk)))
+        out += data.get("items", [])
+    return out
 
 
 # ---------- Claude call (Locus credits or Anthropic directly) ----------

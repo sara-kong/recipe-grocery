@@ -45,8 +45,13 @@ Find your laptop's address with `ipconfig getifaddr en0`. Phone and laptop need 
 | DELETE | /pantry/{name} | ran out of something |
 | POST | /pantry/import | form field `file` (image) -> items added to the pantry |
 | GET | /app | the phone page |
+| GET | /ingredients/map | what every ingredient name counts as |
+| PUT | /ingredients/map/{name} | `{canonical, family, basic}`: fix one by hand |
+| GET | /health | no key needed; for an uptime pinger |
 
 ## Notes
+- `ingredients.py` decides what counts as what (scallions = green onions, egg yolks need eggs,
+  water and salt are always there). Claude classifies each new name once; results live in `ingredient_map`.
 - Protein numbers are Claude's estimates.
 - Long screenshots are cut into overlapping pieces so small text stays readable.
 - Order history comes from screenshots you take, not from scraping Uber Eats or DoorDash.

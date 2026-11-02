@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS pantry (
     is_staple INTEGER DEFAULT 0,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+-- The app's dictionary: every ingredient or pantry name -> what it counts as.
+CREATE TABLE IF NOT EXISTS ingredient_map (
+    name TEXT PRIMARY KEY,        -- as stored, e.g. "egg yolks"
+    canonical TEXT NOT NULL,      -- what you buy, e.g. "eggs"
+    family TEXT NOT NULL,         -- broader group, e.g. "cheese" for "mozzarella"
+    basic INTEGER DEFAULT 0       -- always available: water, salt, black pepper
+);
 """
 
 PG_SCHEMA = [
@@ -58,6 +65,11 @@ PG_SCHEMA = [
         name TEXT PRIMARY KEY,
         is_staple INTEGER DEFAULT 0,
         updated_at TIMESTAMPTZ DEFAULT now())""",
+    """CREATE TABLE IF NOT EXISTS ingredient_map (
+        name TEXT PRIMARY KEY,
+        canonical TEXT NOT NULL,
+        family TEXT NOT NULL,
+        basic INTEGER DEFAULT 0)""",
 ]
 
 
