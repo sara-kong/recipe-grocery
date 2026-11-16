@@ -1,3 +1,4 @@
+"""TikTok link -> caption + transcript -> structured recipe via Claude."""
 import glob
 import os
 import tempfile
@@ -59,6 +60,7 @@ def fetch_tiktok(url: str) -> dict:
             "transcript": transcript,
             "uploader": info.get("uploader"),
             "canonical_url": info.get("webpage_url") or url,
+            "thumbnail": info.get("thumbnail"),
         }
 
 
@@ -87,6 +89,31 @@ def transcribe(audio_path: str) -> str:
         _whisper = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8")
     segments, _ = _whisper.transcribe(audio_path, language="en", vad_filter=True)
     return " ".join(s.text.strip() for s in segments)
+
+
+def fetch_thumbnail(image_url: str | None, width: int = 480) -> bytes | None:
+    """Download a video's cover image and shrink it to a small JPEG we can keep.
+    TikTok's image links expire, so the app stores the image itself, not the link."""
+    if not image_url:
+        return None
+    resp = httpx.get(image_url, timeout=15, follow_redirects=True,
+                     verify=os.getenv("YTDLP_INSECURE") != "1")
+    resp.raise_for_status()
+    img = ImageOps.exif_transpose(Image.open(io.BytesIO(resp.content))).convert("RGB")
+    if img.width > width:
+        img = img.resize((width, round(img.height * width / img.width)))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=78)
+    return buf.getvalue()
+
+
+def thumbnail_for_video(url: str) -> bytes | None:
+    """For recipes saved before thumbnails existed: look up the cover without downloading the video."""
+    opts = {"quiet": True, "noplaylist": True, "skip_download": True,
+            "nocheckcertificate": os.getenv("YTDLP_INSECURE") == "1"}
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=False)
+    return fetch_thumbnail(info.get("thumbnail"))
 
 
 # ---------- 2. Parse ----------

@@ -9,11 +9,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from pydantic import BaseModel
 
 from db import get_conn, init_db
-from extract import AISLES, fetch_tiktok, parse_receipt, parse_recipe, prepare_images
+from extract import (AISLES, fetch_thumbnail, fetch_tiktok, parse_receipt, parse_recipe,
+                     prepare_images, thumbnail_for_video)
 from ingredients import Pantry, clean, ensure_classified, lookup
 
 API_KEY = os.getenv("API_KEY")
@@ -136,6 +137,12 @@ def add_recipe(body: RecipeIn):
               i.get("aisle"), i.get("protein_g")) for i in data["ingredients"]],
         )
     ensure_classified(i["name"] for i in data["ingredients"])
+    try:
+        cover = fetch_thumbnail(src.get("thumbnail"))
+        if cover:  # if there isn't one now, the image route tries again later
+            save_image(rid, cover)
+    except Exception:
+        traceback.print_exc()  # a missing cover never blocks saving the recipe
     with get_conn() as conn:
         return load_recipe(conn, rid)
 
@@ -167,6 +174,35 @@ def get_recipe(recipe_id: int):
     return recipe
 
 
+def save_image(recipe_id: int, data: bytes | None):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO recipe_images (recipe_id, data, failed) VALUES (?, ?, ?) "
+            "ON CONFLICT(recipe_id) DO UPDATE SET data = excluded.data, failed = excluded.failed",
+            (recipe_id, data, 0 if data else 1))
+
+
+@app.get("/recipes/{recipe_id}/image")
+def recipe_image(recipe_id: int):
+    """The video's cover image. Older recipes get theirs looked up the first time they're shown."""
+    with get_conn() as conn:
+        rec = conn.execute("SELECT source_url FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+        row = conn.execute("SELECT data, failed FROM recipe_images WHERE recipe_id = ?",
+                           (recipe_id,)).fetchone()
+    if not rec:
+        raise HTTPException(404, "Recipe not found")
+    data = bytes(row["data"]) if row and row["data"] else None
+    if data is None and not (row and row["failed"]):
+        try:
+            data = thumbnail_for_video(rec["source_url"])
+        except Exception:
+            traceback.print_exc()
+        save_image(recipe_id, data)
+    if not data:
+        raise HTTPException(404, "No image for this recipe")
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=604800"})
+
+
 @app.delete("/recipes/{recipe_id}")
 def delete_recipe(recipe_id: int):
     with get_conn() as conn:
@@ -174,21 +210,56 @@ def delete_recipe(recipe_id: int):
     return {"deleted": recipe_id}
 
 
-@app.post("/recipes/{recipe_id}/cooked")
-def cooked(recipe_id: int):
-    """Remove this recipe's non-staple ingredients from the pantry."""
+def cooked_matches(recipe_id: int) -> list[dict]:
+    """Pantry items (not staples) that this recipe drew from."""
     with get_conn() as conn:
         recipe = load_recipe(conn, recipe_id)
-        pantry_names = [r["name"] for r in conn.execute("SELECT name FROM pantry WHERE is_staple = 0").fetchall()]
+        pantry_names = [r["name"] for r in conn.execute(
+            "SELECT name FROM pantry WHERE is_staple = 0 ORDER BY name").fetchall()]
     ensure_classified([i["name"] for i in recipe["ingredients"]] + pantry_names)
     with get_conn() as conn:
-        used = {c["canonical"] for c in lookup(conn, [i["name"] for i in recipe["ingredients"]]).values()
-                if not c["basic"]}
+        ing_info = lookup(conn, [i["name"] for i in recipe["ingredients"]])
         pantry_info = lookup(conn, pantry_names)
-        removed = [n for n in pantry_names if pantry_info[clean(n)]["canonical"] in used]
+    used_for, generic_for = {}, {}
+    for i in recipe["ingredients"]:
+        c = ing_info[clean(i["name"])]
+        if c["basic"]:
+            continue
+        used_for.setdefault(c["canonical"], i["name"])
+        if c["canonical"] == c["family"]:  # e.g. "shredded cheese" could have come from your mozzarella
+            generic_for.setdefault(c["family"], i["name"])
+    matches = []
+    for n in pantry_names:
+        p = pantry_info[clean(n)]
+        used = used_for.get(p["canonical"]) or generic_for.get(p["family"])
+        if used:
+            matches.append({"name": n, "counts_as": p["canonical"], "used_for": used})
+    return matches
+
+
+@app.get("/recipes/{recipe_id}/cooked")
+def cooked_check(recipe_id: int):
+    """What to ask about after cooking: the pantry items this recipe used some of."""
+    return {"items": cooked_matches(recipe_id)}
+
+
+class CookedIn(BaseModel):
+    used_up: list[str] | None = None  # None = assume everything was used up
+
+
+@app.post("/recipes/{recipe_id}/cooked")
+def cooked(recipe_id: int, body: CookedIn | None = None):
+    """Remove what you finished. Items you still have some of stay in the pantry."""
+    names = [m["name"] for m in cooked_matches(recipe_id)]
+    if body is not None and body.used_up is not None:
+        finished = {clean(n) for n in body.used_up}
+        removed = [n for n in names if clean(n) in finished]
+    else:
+        removed = names
+    with get_conn() as conn:
         for n in removed:
             conn.execute("DELETE FROM pantry WHERE name = ?", (n,))
-    return {"removed": removed}
+    return {"removed": removed, "kept": [n for n in names if n not in removed]}
 
 
 # ---------- Shopping list ----------

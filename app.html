@@ -10,17 +10,21 @@
 <link rel="icon" type="image/png" href="/icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #eef2ec;
-    --surface: #ffffff;
-    --ink: #1d2620;
-    --muted: #5f6b63;
-    --line: #d6ddd5;
-    --basil: #2c6e49;
-    --basil-ink: #ffffff;
-    --tomato: #b8402a;
+    --bg: #ffffff;
+    --surface: #f3f3f1;
+    --fill: #e6e6e2;
+    --ink: #141414;
+    --muted: #5e5e5e;
+    --done: #6f6f6f;
+    --sage: #3f6b4f;
+    --danger: #a3341f;
+    --on-ink: #ffffff;
+    --tone-1: #e6e9e4; --tone-2: #ece9e6; --tone-3: #e4e7eb; --tone-4: #eae8ec;
+    --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
+    --sans: Inter, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
     color-scheme: light;
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
@@ -28,94 +32,132 @@
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #151a17;
-      --surface: #1e2521;
-      --ink: #e8eee9;
-      --muted: #9aa69e;
-      --line: #2f3833;
-      --basil: #6fc48f;
-      --basil-ink: #10241a;
-      --tomato: #f08a72;
+      --bg: #111211;
+      --surface: #1d1e1d;
+      --fill: #2e302e;
+      --ink: #f2f2f0;
+      --muted: #a4a6a3;
+      --done: #8d8f8c;
+      --sage: #86b896;
+      --danger: #f08a72;
+      --on-ink: #111211;
+      --tone-1: #232823; --tone-2: #2a2725; --tone-3: #22262b; --tone-4: #28252a;
       color-scheme: dark;
     }
   }
   *, *::before, *::after { box-sizing: inherit; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font: 16px/1.45 "Bricolage Grotesque", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    -webkit-font-smoothing: antialiased;
-  }
-  main { max-width: 560px; margin: 0 auto; padding: 20px 16px 120px; }
-  h1 { font-size: 34px; line-height: 1.05; font-weight: 800; letter-spacing: -0.02em; margin: 0; }
-  h2 { font-size: 15px; font-weight: 600; color: var(--muted); margin: 28px 0 8px; text-transform: capitalize; }
-  .sub { color: var(--muted); margin: 6px 0 0; }
-  a { color: var(--basil); font-weight: 600; text-decoration: none; }
-  button, input { font: inherit; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 var(--sans); -webkit-font-smoothing: antialiased; }
+  main { max-width: 560px; margin: 0 auto; padding: 32px 20px 132px; }
+  h1, h2, h3, p { margin: 0; }
+  em { font-style: italic; }
+  a { color: inherit; }
+  button, input { font: inherit; color: inherit; }
   button { cursor: pointer; }
-  button:focus-visible, input:focus-visible, a:focus-visible { outline: 3px solid var(--basil); outline-offset: 2px; }
-  .ghost:focus-within { outline: 3px solid var(--basil); outline-offset: 2px; }
-
-  .tools { display: flex; gap: 8px; margin: 18px 0 20px; }
-  .ghost {
-    background: transparent; color: var(--basil); border: 1.5px solid var(--basil);
-    border-radius: 999px; padding: 8px 14px; font-weight: 600; white-space: nowrap; cursor: pointer;
-  }
-  .small { padding: 5px 11px; font-size: 14px; }
-  .back { background: none; border: 0; color: var(--basil); font-weight: 600; padding: 0; margin-bottom: 14px; }
-
-  .rows { list-style: none; margin: 0; padding: 0; background: var(--surface); border-radius: 14px; overflow: hidden; }
-  .rows li + li { border-top: 1px solid var(--line); }
-  .row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; min-height: 64px; }
-  .row input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--basil); flex: none; margin: 0; }
-  .check { display: flex; align-items: center; padding: 14px 4px 14px 16px; margin: -14px 0 -14px -16px; align-self: stretch; }
-  .open {
-    flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px;
-    background: none; border: 0; padding: 0; color: inherit; text-align: left;
-  }
-  .protein { flex: none; width: 58px; }
-  .protein b { display: block; font-size: 26px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; color: var(--tomato); }
-  .protein span { font-size: 12px; color: var(--muted); }
-  .title { flex: 1; min-width: 0; }
-  .item-name { font-weight: 600; }
-  .item-meta { color: var(--muted); font-size: 13px; }
-  .have { color: var(--muted); font-size: 13px; flex: none; }
-  li.done .item-name { text-decoration: line-through; color: var(--muted); }
-  li.owned .item-name { color: var(--muted); }
-  .row-actions { display: flex; gap: 6px; flex: none; }
-
-  .hero-protein { margin: 4px 0 14px; }
-  .hero-protein b { font-size: 56px; font-weight: 800; line-height: 0.95; letter-spacing: -0.03em; color: var(--tomato); }
-  .hero-protein span { display: block; color: var(--muted); font-size: 14px; }
-  .steps { background: var(--surface); border-radius: 14px; margin: 0; padding: 14px 16px 14px 40px; }
-  .steps li + li { margin-top: 10px; }
-  .detail-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 28px; }
-  .danger { background: none; border: 0; color: var(--tomato); font-weight: 600; padding: 10px; }
-
-  .add-form { background: var(--surface); border-radius: 14px; padding: 14px 16px; margin-top: 20px; display: grid; gap: 12px; }
-  .add-form input[type=text] {
-    width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 11px 12px;
-    background: var(--bg); color: var(--ink); font-size: 16px;
-  }
-  .add-form label { display: flex; align-items: center; gap: 10px; color: var(--muted); }
-  .add-form input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--basil); margin: 0; }
-
-  .bar {
-    position: fixed; left: 0; right: 0; bottom: 0;
-    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(to top, var(--bg) 70%, transparent);
-  }
-  .primary {
-    display: block; width: 100%; max-width: 528px; margin: 0 auto;
-    background: var(--basil); color: var(--basil-ink); border: 0; border-radius: 14px;
-    padding: 16px; font-size: 17px; font-weight: 700;
-  }
-  .primary:disabled { opacity: 0.4; }
-  .empty, .note { background: var(--surface); border-radius: 14px; padding: 18px 16px; color: var(--muted); }
-  .note { margin-bottom: 16px; color: var(--ink); }
-  .note.error { color: var(--tomato); }
+  :focus-visible { outline: 2px solid var(--sage); outline-offset: 3px; }
   [hidden] { display: none !important; }
+
+  /* Type */
+  .eyebrow { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .display { font-family: var(--serif); font-weight: 400; font-size: 46px; line-height: 1.02; letter-spacing: -0.01em; }
+  .section-title { font-family: var(--serif); font-weight: 400; font-size: 28px; line-height: 1.1; }
+  .sub { color: var(--muted); font-size: 15px; }
+  .meta { color: var(--muted); font-size: 13px; }
+
+  /* One pill shape for every button */
+  .pill {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 44px; padding: 0 20px; border: 0; border-radius: 999px;
+    background: var(--surface); color: var(--ink); font-size: 15px; font-weight: 500;
+    text-decoration: none; white-space: nowrap;
+  }
+  .pill.small { height: 36px; padding: 0 14px; font-size: 14px; }
+  .pill.wide { display: flex; width: 100%; height: 52px; font-size: 16px; font-weight: 600; }
+  .pill.dark { background: var(--ink); color: var(--on-ink); }
+  .pill.danger { color: var(--danger); }
+  .pill.on { background: var(--danger); color: var(--on-ink); }
+  .pill:disabled { opacity: 0.4; cursor: default; }
+  .pill svg { flex: none; }
+
+  /* Round checks */
+  .circle {
+    flex: none; width: 28px; height: 28px; border-radius: 50%; border: 0; padding: 0; color: var(--on-ink);
+    background: var(--fill); display: grid; place-items: center;
+  }
+  .circle svg { opacity: 0; }
+  .circle.on, input.circle:checked { background: var(--ink); }
+  .circle.have { background: var(--sage); }
+  .circle.on svg, .circle.have svg { opacity: 1; }
+  input.circle { appearance: none; -webkit-appearance: none; margin: 0; cursor: pointer;
+    background-image: none; position: relative; }
+  input.circle:checked::after {
+    content: ""; position: absolute; left: 10px; top: 6px; width: 6px; height: 12px;
+    border: solid var(--on-ink); border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+  }
+
+  /* Status note */
+  .note { background: var(--surface); border-radius: 18px; padding: 14px 16px; margin-bottom: 20px; font-size: 15px; }
+  .note.error { color: var(--danger); }
+  .empty { background: var(--surface); border-radius: 18px; padding: 20px 18px; color: var(--muted); }
+
+  /* Recipes */
+  .intro { display: grid; gap: 18px; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 6px; }
+  .grid-head { display: flex; justify-content: space-between; align-items: baseline; padding: 36px 0 14px; gap: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; row-gap: 26px; }
+  .card { position: relative; min-width: 0; }
+  .card-open { display: grid; gap: 10px; width: 100%; padding: 0; border: 0; background: none; text-align: left; }
+  .thumb { position: relative; aspect-ratio: 4 / 5; border-radius: 16px; overflow: hidden; background: var(--tone-1); }
+  .thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .tag {
+    position: absolute; left: 10px; bottom: 10px; height: 28px; padding: 0 11px; border-radius: 999px;
+    background: var(--bg); display: flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600;
+  }
+  .tag span { font-weight: 400; color: var(--muted); }
+  .card-title { font-family: var(--serif); font-weight: 400; font-size: 20px; line-height: 1.15; padding: 0 2px; }
+  .card .meta { padding: 0 2px; }
+  .select { position: absolute; right: 10px; top: 10px; width: 30px; height: 30px; background: var(--bg); }
+  .select.on { background: var(--ink); }
+
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg);
+    padding: 14px 20px calc(18px + env(safe-area-inset-bottom, 0px)); }
+  .bar .pill { max-width: 520px; margin: 0 auto; }
+
+  /* Recipe detail */
+  .stack { display: grid; gap: 28px; }
+  .hero { aspect-ratio: 4 / 4.3; border-radius: 20px; overflow: hidden; position: relative; background: var(--tone-3); }
+  .hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .title-block { display: grid; gap: 14px; justify-items: start; }
+  .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .stat { background: var(--surface); border-radius: 16px; padding: 14px 14px 12px; display: grid; gap: 4px; align-content: start; }
+  .stat b { font-family: var(--serif); font-weight: 400; font-size: 32px; line-height: 1; }
+  .stat span { font-size: 12px; color: var(--muted); line-height: 1.3; }
+  .items { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .item { display: flex; align-items: center; gap: 14px; padding: 9px 0; min-height: 44px; }
+  .item-text { flex: 1; min-width: 0; display: grid; gap: 2px; }
+  .item-name { font-size: 16px; font-weight: 500; }
+  .amount { flex: none; font-size: 14px; color: var(--muted); }
+  .item.done .item-name { color: var(--done); text-decoration: line-through; }
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+  .steps li { display: flex; gap: 16px; align-items: baseline; }
+  .steps .n { flex: none; width: 30px; font-family: var(--serif); font-size: 26px; line-height: 1; color: var(--muted); }
+  .actions { display: grid; gap: 10px; padding-top: 8px; }
+
+  /* Shopping list */
+  .progress { display: grid; gap: 8px; }
+  .track { height: 6px; border-radius: 999px; background: var(--surface); overflow: hidden; }
+  .track div { height: 100%; border-radius: 999px; background: var(--sage); transition: width 0.25s ease; }
+  .aisle-name { font-size: 14px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  label.item { cursor: pointer; }
+
+  /* Pantry */
+  .add-form { background: var(--surface); border-radius: 20px; padding: 16px; display: grid; gap: 14px; }
+  .field {
+    width: 100%; height: 48px; border: 0; border-radius: 999px; padding: 0 18px;
+    background: var(--bg); font-size: 16px;
+  }
+  .add-form input.circle:not(:checked) { background: var(--bg); }
+  .check-label { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 15px; cursor: pointer; }
+  .row-actions { display: flex; gap: 6px; flex: none; }
 </style>
 </head>
 <body>
@@ -123,52 +165,81 @@
   <div id="status" class="note" role="status" hidden></div>
 
   <section id="pick">
-    <h1>What are you cooking?</h1>
-    <p class="sub">Pick recipes, get one list of what you’re missing.</p>
-    <div class="tools">
-      <button class="ghost" data-go="pantry">Pantry</button>
-      <label class="ghost" for="upload">Add receipt</label>
-      <input id="upload" type="file" accept="image/*" multiple hidden>
+    <div class="intro">
+      <p class="eyebrow">Groceries</p>
+      <h1 class="display">What are you <em>cooking</em> this week?</h1>
+      <div class="tools">
+        <button class="pill" data-go="pantry">Pantry</button>
+        <label class="pill" for="upload">Add receipt</label>
+        <input id="upload" type="file" accept="image/*" multiple hidden>
+      </div>
     </div>
-    <ul id="recipes" class="rows"></ul>
+    <div class="grid-head">
+      <h2 class="section-title" style="font-size:26px">Saved recipes</h2>
+      <span class="meta">Most protein first</span>
+    </div>
+    <div id="recipes" class="grid"></div>
   </section>
 
   <section id="detail" hidden>
-    <button class="back" data-go="pick">‹ Recipes</button>
-    <div id="detail-body"></div>
+    <button class="pill" data-go="pick">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      Recipes
+    </button>
+    <div id="detail-body" class="stack" style="margin-top:28px"></div>
   </section>
 
   <section id="list" hidden>
-    <button class="back" data-go="pick">‹ Recipes</button>
-    <h1 id="list-title">Your list</h1>
-    <p class="sub" id="list-sub"></p>
-    <div id="aisles"></div>
+    <button class="pill" data-go="pick">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      Recipes
+    </button>
+    <div class="stack" style="margin-top:26px; gap:26px">
+      <div class="intro" style="gap:12px">
+        <p class="eyebrow">This Week</p>
+        <h1 class="display" id="list-title">Your list</h1>
+        <p class="sub" id="list-sub"></p>
+      </div>
+      <div class="progress" id="progress">
+        <div class="track"><div id="progress-fill" style="width:0%"></div></div>
+        <span class="meta" id="progress-text"></span>
+      </div>
+      <div id="aisles" class="stack" style="gap:24px"></div>
+    </div>
   </section>
 
   <section id="pantry" hidden>
-    <button class="back" data-go="pick">‹ Recipes</button>
-    <h1>Pantry</h1>
-    <p class="sub">What you have at home. Anything here stays off your list.</p>
-    <form id="pantry-form" class="add-form">
-      <input id="pantry-input" type="text" placeholder="eggs, rice, spinach" autocomplete="off" aria-label="Items to add">
-      <label><input id="pantry-staple" type="checkbox"> Staple (I always have it)</label>
-      <button class="primary" type="submit">Add to pantry</button>
-    </form>
-    <div id="pantry-items"></div>
+    <button class="pill" data-go="pick">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      Recipes
+    </button>
+    <div class="stack" style="margin-top:26px">
+      <div class="intro" style="gap:12px">
+        <h1 class="display">Pantry</h1>
+        <p class="sub">What you have at home. Anything here stays off your list.</p>
+      </div>
+      <form id="pantry-form" class="add-form">
+        <input id="pantry-input" class="field" type="text" placeholder="Eggs, rice, spinach" autocomplete="off" aria-label="Items to add">
+        <label class="check-label"><input id="pantry-staple" class="circle" type="checkbox"> Staple, I always have it</label>
+        <button class="pill wide dark" type="submit">Add to pantry</button>
+      </form>
+      <div id="pantry-items" class="stack" style="gap:24px"></div>
+    </div>
   </section>
 </main>
 
 <div class="bar" id="bar">
-  <button class="primary" id="make" disabled>Make list</button>
+  <button class="pill wide dark" id="make" disabled>Make list</button>
 </div>
 
 <script>
 const KEY = new URLSearchParams(location.search).get("key") || "";
 const $ = (id) => document.getElementById(id);
+const withKey = (path) => path + (KEY ? (path.includes("?") ? "&" : "?") + "key=" + encodeURIComponent(KEY) : "");
+const CHECK = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
 
 async function api(path, opts = {}) {
-  const sep = path.includes("?") ? "&" : "?";
-  const res = await fetch(path + (KEY ? sep + "key=" + encodeURIComponent(KEY) : ""), opts);
+  const res = await fetch(withKey(path), opts);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.detail || `Request failed (${res.status})`);
   return body;
@@ -183,7 +254,12 @@ const store = {
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
+const cap = (s) => String(s || "").charAt(0).toUpperCase() + String(s || "").slice(1);
+const titleCase = (s) => String(s || "").replace(/\b\w/g, (c) => c.toUpperCase());
 const fmtAmount = (q, u) => (q == null ? "" : `${+Number(q).toFixed(2)} ${u || ""}`.trim());
+const tone = (id) => `var(--tone-${(id % 4) + 1})`;
+// Cover image; if there isn't one, the soft tile underneath shows instead.
+const coverImg = (id) => `<img src="${esc(withKey(`/recipes/${id}/image`))}" alt="" loading="lazy" onerror="this.remove()">`;
 
 function showStatus(text, isError = false) {
   const el = $("status");
@@ -217,14 +293,14 @@ function updateMakeButton() {
 }
 
 async function loadRecipes() {
-  let recipes;
   if (!$("recipes").children.length) {
-    $("recipes").innerHTML = `<li class="empty">Loading recipes… If the app was idle, the server takes up to a minute to wake up.</li>`;
+    $("recipes").innerHTML = `<div class="empty" style="grid-column:1/-1">Loading recipes… If the app was idle, the server takes up to a minute to wake up.</div>`;
   }
+  let recipes;
   try {
     recipes = await api("/recipes");
   } catch (e) {
-    $("recipes").innerHTML = `<li class="empty">${esc(e.message)}</li>`;
+    $("recipes").innerHTML = `<div class="empty" style="grid-column:1/-1">${esc(e.message)}</div>`;
     return;
   }
   const ids = new Set(recipes.map((r) => r.id));
@@ -232,30 +308,40 @@ async function loadRecipes() {
   store.set("selected", [...selected]);
 
   $("recipes").innerHTML = recipes.length
-    ? recipes.map((r) => `
-      <li class="row">
-        <label class="check"><input type="checkbox" data-id="${r.id}" ${selected.has(r.id) ? "checked" : ""}
-          aria-label="Add ${esc(r.title)} to this week’s list"></label>
-        <button class="open" data-open="${r.id}">
-          <span class="protein"><b>${Math.round(r.protein_per_serving_g || 0)}g</b><span>protein</span></span>
-          <span class="title"><span class="item-name">${esc(r.title)}</span><br>
-            <span class="item-meta">View recipe</span></span>
-        </button>
-      </li>`).join("")
-    : `<li class="empty">No recipes yet. Share a TikTok to the Add Recipe shortcut and it’ll show up here.</li>`;
+    ? recipes.map((r) => {
+        const on = selected.has(r.id);
+        return `
+        <article class="card">
+          <button class="card-open" data-open="${r.id}">
+            <span class="thumb" style="background:${tone(r.id)}">
+              ${coverImg(r.id)}
+              <span class="tag">${Math.round(r.protein_per_serving_g || 0)}g <span>protein</span></span>
+            </span>
+            <span class="card-title">${esc(r.title)}</span>
+            <span class="meta">Serves ${r.servings}</span>
+          </button>
+          <button class="circle select ${on ? "on" : ""}" data-select="${r.id}" aria-pressed="${on}"
+            aria-label="${on ? "Remove" : "Add"} ${esc(r.title)} ${on ? "from" : "to"} this week">${CHECK}</button>
+        </article>`;
+      }).join("")
+    : `<div class="empty" style="grid-column:1/-1">No recipes yet. Share a TikTok to the Add Recipe shortcut and it’ll show up here.</div>`;
   updateMakeButton();
 }
 
-$("recipes").addEventListener("change", (e) => {
-  const id = Number(e.target.dataset.id);
-  e.target.checked ? selected.add(id) : selected.delete(id);
-  store.set("selected", [...selected]);
-  updateMakeButton();
-});
-
 $("recipes").addEventListener("click", (e) => {
-  const btn = e.target.closest("[data-open]");
-  if (btn) openRecipe(Number(btn.dataset.open));
+  const sel = e.target.closest("[data-select]");
+  if (sel) {
+    const id = Number(sel.dataset.select);
+    const on = !selected.has(id);
+    on ? selected.add(id) : selected.delete(id);
+    sel.classList.toggle("on", on);
+    sel.setAttribute("aria-pressed", String(on));
+    store.set("selected", [...selected]);
+    updateMakeButton();
+    return;
+  }
+  const open = e.target.closest("[data-open]");
+  if (open) openRecipe(Number(open.dataset.open));
 });
 
 /* ---------- Recipe detail ---------- */
@@ -283,42 +369,48 @@ async function openRecipe(id, keepStatus = false) {
   const owned = needed.filter((i) => i.have).length;
 
   $("detail-body").innerHTML = `
-    <div class="hero-protein"><b>${Math.round(r.protein_per_serving_g || 0)}g</b>
-      <span>protein per serving, estimated</span></div>
-    <h1>${esc(r.title)}</h1>
-    <p class="sub">Serves ${r.servings}. You have ${owned} of ${needed.length} ingredients.</p>
-    <p><a href="${esc(r.source_url)}" target="_blank" rel="noopener">Watch on TikTok</a></p>
+    <div class="hero" style="background:${tone(r.id)}">${coverImg(r.id)}</div>
 
-    <h2>Ingredients</h2>
-    <ul class="rows">${r.ingredients.map((i) => {
-      const amount = fmtAmount(i.quantity, i.unit);
-      const tag = i.basic ? "Kitchen basic" : i.have ? "Have it" : "";
-      const countsAs = i.canonical && i.canonical !== i.name ? `Counts as ${i.canonical}. ` : "";
-      return `<li class="row ${i.have ? "owned" : ""}">
-        <span class="title"><span class="item-name">${esc(i.name)}</span>
-          ${amount ? `<span class="item-meta">${esc(amount)}</span>` : ""}<br>
-          <span class="item-meta">${esc(countsAs)}${esc(i.original || "")}</span></span>
-        ${tag ? `<span class="have">${tag}</span>` : ""}
-      </li>`;
-    }).join("")}</ul>
+    <div class="title-block">
+      <h1 class="display" style="font-size:44px">${esc(r.title)}</h1>
+      <a class="pill small" href="${esc(r.source_url)}" target="_blank" rel="noopener">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>
+        Watch on TikTok
+      </a>
+    </div>
 
-    ${r.steps.length ? `<h2>Steps</h2><ol class="steps">${r.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>` : ""}
+    <div class="stats">
+      <div class="stat"><b>${Math.round(r.protein_per_serving_g || 0)}g</b><span>protein per serving</span></div>
+      <div class="stat"><b>${r.servings}</b><span>serving${r.servings === 1 ? "" : "s"}</span></div>
+      <div class="stat"><b>${owned} of ${needed.length}</b><span>ingredients on hand</span></div>
+    </div>
 
-    <div class="detail-actions">
-      <button class="primary" id="cooked">Cooked it</button>
-      <button class="danger" id="delete">Delete recipe</button>
+    <section>
+      <h2 class="section-title" style="margin-bottom:10px">Ingredients</h2>
+      <ul class="items">${r.ingredients.map((i) => {
+        const amount = fmtAmount(i.quantity, i.unit);
+        const note = i.basic ? "Kitchen basic"
+          : i.canonical && i.canonical !== i.name ? `Counts as ${i.canonical}${i.have ? ". You have some" : ""}`
+          : i.have ? "In your pantry" : "Not in your pantry";
+        return `<li class="item">
+          <span class="circle ${i.have || i.basic ? "have" : ""}" aria-hidden="true" style="color:var(--on-ink)">${CHECK}</span>
+          <span class="item-text"><span class="item-name">${esc(cap(i.name))}</span><span class="meta">${esc(note)}</span></span>
+          ${amount ? `<span class="amount">${esc(amount)}</span>` : ""}
+        </li>`;
+      }).join("")}</ul>
+    </section>
+
+    ${r.steps.length ? `<section>
+      <h2 class="section-title" style="margin-bottom:18px">Steps</h2>
+      <ol class="steps">${r.steps.map((s, n) => `<li><span class="n">${String(n + 1).padStart(2, "0")}</span><p>${esc(s)}</p></li>`).join("")}</ol>
+    </section>` : ""}
+
+    <div class="actions" id="detail-actions">
+      <button class="pill wide dark" id="cooked">Cooked it</button>
+      <button class="pill wide danger" id="delete">Delete recipe</button>
     </div>`;
 
-  $("cooked").onclick = async () => {
-    try {
-      const res = await api(`/recipes/${id}/cooked`, { method: "POST" });
-      showStatus(res.removed.length
-        ? `Cooked. Removed from your pantry: ${res.removed.join(", ")}.`
-        : "Cooked. Nothing to remove, since none of these were in your pantry (staples stay).");
-      openRecipe(id, true);
-    } catch (e) { showStatus(e.message, true); }
-  };
-
+  $("cooked").onclick = () => askWhatsLeft(id);
   $("delete").onclick = async () => {
     if (!confirm(`Delete “${r.title}”?`)) return;
     try {
@@ -326,10 +418,71 @@ async function openRecipe(id, keepStatus = false) {
       selected.delete(id);
       store.set("selected", [...selected]);
       showStatus(`Deleted ${r.title}.`);
+      $("recipes").innerHTML = "";
       await loadRecipes();
       show("pick");
     } catch (e) { showStatus(e.message, true); }
   };
+}
+
+/* ---------- After cooking: what's left? ---------- */
+
+async function askWhatsLeft(id) {
+  showStatus("");
+  let items;
+  try {
+    ({ items } = await api(`/recipes/${id}/cooked`));
+  } catch (e) { showStatus(e.message, true); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+
+  if (!items.length) {
+    showStatus("Nothing to update. None of this recipe’s ingredients are in your pantry, or they’re staples.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  const finished = new Set();
+  const actions = $("detail-actions");
+  const panel = document.createElement("section");
+  panel.innerHTML = `
+    <h2 class="section-title">What did you use up?</h2>
+    <p class="sub" style="margin:6px 0 12px">Tap anything that’s finished. Everything else stays in your pantry.</p>
+    <ul class="items">${items.map((m) => `
+      <li class="item">
+        <span class="item-text"><span class="item-name">${esc(cap(m.name))}</span><span class="meta">Used for ${esc(m.used_for)}</span></span>
+        <button class="pill small" data-name="${esc(m.name)}" aria-pressed="false" style="min-width:104px">Still have</button>
+      </li>`).join("")}</ul>
+    <div class="actions" style="padding-top:20px">
+      <button class="pill wide dark" data-act="save">Save</button>
+      <button class="pill wide" data-act="cancel">Cancel</button>
+    </div>`;
+
+  panel.addEventListener("click", async (e) => {
+    const t = e.target.closest("button");
+    if (!t) return;
+    if (t.dataset.name) {
+      const done = t.getAttribute("aria-pressed") !== "true";
+      t.setAttribute("aria-pressed", String(done));
+      t.textContent = done ? "Used up" : "Still have";
+      t.classList.toggle("on", done);
+      t.closest("li").classList.toggle("done", done);
+      done ? finished.add(t.dataset.name) : finished.delete(t.dataset.name);
+    } else if (t.dataset.act === "cancel") {
+      panel.replaceWith(actions);
+    } else if (t.dataset.act === "save") {
+      t.disabled = true;
+      try {
+        const res = await api(`/recipes/${id}/cooked`, jsonBody("POST", { used_up: [...finished] }));
+        showStatus(res.removed.length
+          ? `Removed from your pantry: ${res.removed.join(", ")}. Still have: ${res.kept.join(", ") || "nothing else"}.`
+          : "Got it. Everything stays in your pantry.");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        openRecipe(id, true);
+      } catch (err) { showStatus(err.message, true); t.disabled = false; }
+    }
+  });
+
+  actions.replaceWith(panel);
+  panel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 /* ---------- Shopping list ---------- */
@@ -349,24 +502,38 @@ async function showList() {
   const checkedKey = "checked:" + ids.join(",");
   const checked = new Set(store.get(checkedKey, []));
 
-  $("list-title").textContent = data.count ? `${data.count} thing${data.count > 1 ? "s" : ""} to buy` : "You have everything";
-  $("list-sub").textContent = "For " + data.recipes.join(", ");
+  $("list-title").innerHTML = data.count
+    ? `${data.count} thing${data.count > 1 ? "s" : ""} <em>to buy</em>`
+    : `You have <em>everything</em>`;
+  $("list-sub").textContent = "For " + data.recipes.join(" and ");
+  $("progress").hidden = !data.count;
+
+  const updateProgress = () => {
+    const got = Object.values(data.by_aisle).flat().filter((i) => checked.has(i.name)).length;
+    $("progress-fill").style.width = data.count ? `${Math.round((got / data.count) * 100)}%` : "0%";
+    $("progress-text").textContent = `${got} of ${data.count} in your basket`;
+  };
+
   $("aisles").innerHTML = Object.entries(data.by_aisle).map(([aisle, items]) => `
-    <h2>${esc(aisle)}</h2>
-    <ul class="rows">${items.map((i) => `
-      <li class="${checked.has(i.name) ? "done" : ""}"><label class="row">
-        <input type="checkbox" data-name="${esc(i.name)}" ${checked.has(i.name) ? "checked" : ""}>
-        <span class="title"><span class="item-name">${esc(i.name)}${i.amount ? ` <span class="item-meta">${esc(i.amount)}</span>` : ""}</span><br>
-          <span class="item-meta">${esc(i.recipes.join(", "))}</span></span>
-      </label></li>`).join("")}
-    </ul>`).join("");
+    <section>
+      <h2 class="aisle-name">${esc(titleCase(aisle))}</h2>
+      <div class="items">${items.map((i) => `
+        <label class="item ${checked.has(i.name) ? "done" : ""}">
+          <input type="checkbox" class="circle" data-name="${esc(i.name)}" ${checked.has(i.name) ? "checked" : ""}>
+          <span class="item-text"><span class="item-name">${esc(cap(i.name))}</span>
+            <span class="meta">${esc(i.amount ? `${i.amount} for ${i.recipes.join(", ")}` : `For ${i.recipes.join(", ")}`)}</span></span>
+        </label>`).join("")}
+      </div>
+    </section>`).join("");
 
   $("aisles").onchange = (e) => {
     const name = e.target.dataset.name;
     e.target.checked ? checked.add(name) : checked.delete(name);
-    e.target.closest("li").classList.toggle("done", e.target.checked);
+    e.target.closest(".item").classList.toggle("done", e.target.checked);
     store.set(checkedKey, [...checked]);
+    updateProgress();
   };
+  updateProgress();
   show("list");
 }
 $("make").addEventListener("click", showList);
@@ -382,21 +549,20 @@ async function loadPantry() {
     return;
   }
   const row = (p) => `
-    <li class="row">
-      <span class="title"><span class="item-name">${esc(p.name)}</span>
-        ${p.counts_as && p.counts_as !== p.name ? `<br><span class="item-meta">Counts as ${esc(p.counts_as)}</span>` : ""}</span>
+    <li class="item">
+      <span class="item-text"><span class="item-name">${esc(cap(p.name))}</span>
+        ${p.counts_as && p.counts_as !== p.name ? `<span class="meta">Counts as ${esc(p.counts_as)}</span>` : ""}</span>
       <span class="row-actions">
-        <button class="ghost small" data-staple="${esc(p.name)}" data-to="${p.is_staple ? 0 : 1}">
-          ${p.is_staple ? "Not a staple" : "Make staple"}</button>
-        <button class="ghost small" data-remove="${esc(p.name)}">Remove</button>
+        <button class="pill small" data-staple="${esc(p.name)}" data-to="${p.is_staple ? 0 : 1}">${p.is_staple ? "Not a staple" : "Make staple"}</button>
+        <button class="pill small" data-remove="${esc(p.name)}">Remove</button>
       </span>
     </li>`;
   const staples = items.filter((p) => p.is_staple);
   const others = items.filter((p) => !p.is_staple);
   $("pantry-items").innerHTML = items.length
-    ? (staples.length ? `<h2>Staples</h2><ul class="rows">${staples.map(row).join("")}</ul>` : "")
-      + (others.length ? `<h2>Other items</h2><ul class="rows">${others.map(row).join("")}</ul>` : "")
-    : `<div class="empty" style="margin-top:20px">Your pantry is empty. Add what you have, or use Add receipt after you shop.</div>`;
+    ? (staples.length ? `<section><h2 class="section-title" style="margin-bottom:8px">Staples</h2><ul class="items">${staples.map(row).join("")}</ul></section>` : "")
+      + (others.length ? `<section><h2 class="section-title" style="margin-bottom:8px">Other Items</h2><ul class="items">${others.map(row).join("")}</ul></section>` : "")
+    : `<div class="empty">Your pantry is empty. Add what you have, or use Add receipt after you shop.</div>`;
 }
 
 $("pantry-form").addEventListener("submit", async (e) => {

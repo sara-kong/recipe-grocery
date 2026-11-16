@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS pantry (
     is_staple INTEGER DEFAULT 0,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+-- Each recipe's video cover, stored as a small JPEG (TikTok's image links expire).
+CREATE TABLE IF NOT EXISTS recipe_images (
+    recipe_id INTEGER PRIMARY KEY REFERENCES recipes(id) ON DELETE CASCADE,
+    data BLOB,
+    failed INTEGER DEFAULT 0      -- 1 = couldn't get one; don't keep retrying
+);
 -- The app's dictionary: every ingredient or pantry name -> what it counts as.
 CREATE TABLE IF NOT EXISTS ingredient_map (
     name TEXT PRIMARY KEY,        -- as stored, e.g. "egg yolks"
@@ -65,6 +71,10 @@ PG_SCHEMA = [
         name TEXT PRIMARY KEY,
         is_staple INTEGER DEFAULT 0,
         updated_at TIMESTAMPTZ DEFAULT now())""",
+    """CREATE TABLE IF NOT EXISTS recipe_images (
+        recipe_id INTEGER PRIMARY KEY REFERENCES recipes(id) ON DELETE CASCADE,
+        data BYTEA,
+        failed INTEGER DEFAULT 0)""",
     """CREATE TABLE IF NOT EXISTS ingredient_map (
         name TEXT PRIMARY KEY,
         canonical TEXT NOT NULL,
